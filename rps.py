@@ -1,104 +1,103 @@
-def player(prev_play, opponent_history=[]):
-    import random
+# Rock, Paper, Scissors Player
+# This player implements a strategy that adapts to the opponent's play style
 
-    if not hasattr(player, "initialized"):
-        player.my_history = []
-        player.opponent_history = []
-        player.counter = 0
-        player.detected_bot = None
-        player.initialized = True
+my_history = []
+init_play = prev_play = 'S'
+opponent_list = [False, False, False, False]
+ideal_response = {'P' : 'R', 'R' : 'S', 'S' : 'P'}
+opponent_quincy_counter = -1
+play_order = [{
+    "RR" : 0, 
+    "RP" : 0, 
+    "RS" : 0, 
+    "PR" : 0, 
+    "PP" : 0, 
+    "PS" : 0, 
+    "SR" : 0, 
+    "SP" : 0, 
+    "SS" : 0, 
+    }]
 
-    # Record moves
-    if prev_play:
-        player.opponent_history.append(prev_play)
+def player(prev_opponent_play, opponent_history = []):
+    global my_history, prev_play, opponent_list, ideal_response, opponent_quincy_counter, play_order
+    opponent_history.append(prev_opponent_play)
+    my_history.append(prev_play)
 
-    # Detect bot in first few moves (bot fingerprinting)
-    def detect_bot():
-        if len(player.opponent_history) < 20:
-            return None
+    # quincy
+    if(len(set(opponent_list)) == 1 and opponent_history[-5:] == ['R', 'P', 'P', 'S', 'R']):
+        opponent_list[0] = True
 
-        pattern = ''.join(player.opponent_history[:10])
-        unique_counts = len(set(player.opponent_history))
+    if(opponent_list[0]):
+        if(len(opponent_history) % 1000 == 0):
+            opponent_list = [False, False, False, False]
+            opponent_history.clear()
+            
+        opponent_quincy_list = ['P', 'S', 'S', 'R', 'P'] 
+        opponent_quincy_counter = (opponent_quincy_counter + 1) % 5
+        return opponent_quincy_list[opponent_quincy_counter]
+    
+    # abbey
+    if(len(set(opponent_list)) == 1 and opponent_history[-5:] == ['P', 'P', 'R', 'R', 'R']):
+        opponent_list[1] = True
 
-        if player.opponent_history[:10] == ['R', 'R', 'P', 'P', 'S'] * 2:
-            return 'quincy'
-        elif unique_counts <= 2:
-            return 'mrugesh'
-        elif all(player.opponent_history[i] == counter_move(player.my_history[i-1]) for i in range(1, len(player.my_history))):
-            return 'kris'
-        elif len(player.opponent_history) > 2:
-            return 'abbey'
-        return None
+    if(opponent_list[1]): 
+        last_two = ''.join(my_history[-2:])
+        if(len(last_two) == 2):
+            play_order[0][last_two] += 1
+        potential_plays = [
+            prev_play + 'R', 
+            prev_play + 'P', 
+            prev_play + 'S', 
+            ]
+        sub_order = {
+            k : play_order[0][k]
+            for k in potential_plays if k in play_order[0]
+            }
+        prediction = max(sub_order, key = sub_order.get)[-1:]
+        
+        if(len(opponent_history) % 1000 == 0):
+            opponent_list = [False, False, False, False]
+            opponent_history.clear()
+            play_order = [{
+              "RR" : 0, 
+              "RP" : 0, 
+              "RS" : 0, 
+              "PR" : 0, 
+              "PP" : 0, 
+              "PS" : 0, 
+              "SR" : 0, 
+              "SP" : 0, 
+              "SS" : 0, 
+              }]
 
-    def counter_move(move):
-        return {'R': 'P', 'P': 'S', 'S': 'R'}.get(move, random.choice(['R', 'P', 'S']))
+        prev_play = ideal_response[prediction]
+        return prev_play
 
-    # Strategies for specific bots
-    def vs_quincy():
-        # Hard-coded counter to quincy's pattern
-        cycle = ['R', 'R', 'P', 'P', 'S']
-        idx = len(player.opponent_history) % 5
-        next_move = cycle[idx]
-        return counter_move(next_move)
+    # kris
+    if(len(set(opponent_list)) == 1 and opponent_history[-5:] == ['P', 'R', 'R', 'R', 'R']):
+        opponent_list[2] = True
 
-    def vs_mrugesh():
-        # Counter what Mrugesh predicts: your most frequent move
-        my_freq = {'R': 0, 'P': 0, 'S': 0}
-        for m in player.my_history:
-            my_freq[m] += 1
-        if not any(my_freq.values()):
-            return random.choice(['R', 'P', 'S'])
-        my_most = max(my_freq, key=my_freq.get)
-        return counter_move(counter_move(my_most))
+    if(opponent_list[2]):
+        if(len(opponent_history) % 1000 == 0):
+            opponent_list = [False, False, False, False]
+            opponent_history.clear()
+            
+        prev_play = ideal_response[prev_play]
+        return prev_play
 
-    def vs_kris():
-        # Kris always counters your last move => play what counters their counter
-        if not player.my_history:
-            return random.choice(['R', 'P', 'S'])
-        last = player.my_history[-1]
-        predicted = counter_move(last)
-        return counter_move(predicted)
-
-    def vs_abbey():
-        # Abbey uses your last two moves to predict your next
-        if len(player.my_history) < 2:
-            return random.choice(['R', 'P', 'S'])
-
-        last_two = ''.join(player.my_history[-2:])
-        freq = {'R': 0, 'P': 0, 'S': 0}
-
-        # Build frequency of what YOU played after YOUR last_two
-        for i in range(len(player.my_history) - 2):
-            if ''.join(player.my_history[i:i+2]) == last_two:
-                next_move = player.my_history[i+2]
-                freq[next_move] += 1
-
-        # Abbey will predict your most likely next move
-        if sum(freq.values()) == 0:
-            predicted = random.choice(['R', 'P', 'S'])
-        else:
-            predicted = max(freq, key=freq.get)
-
-        # Abbey will counter your predicted move => you counter Abbey's counter
-        return counter_move(counter_move(predicted))
-
-
-    # Detect bot if not yet known
-    if player.detected_bot is None:
-        player.detected_bot = detect_bot()
-
-    # Apply tailored strategy if bot detected
-    if player.detected_bot == 'quincy':
-        move = vs_quincy()
-    elif player.detected_bot == 'mrugesh':
-        move = vs_mrugesh()
-    elif player.detected_bot == 'kris':
-        move = vs_kris()
-    elif player.detected_bot == 'abbey':
-        move = vs_abbey()
-    else:
-        # Early game: play random until bot is detected
-        move = random.choice(['R', 'P', 'S'])
-
-    player.my_history.append(move)
-    return move
+    # mrugesh
+    if(len(set(opponent_list)) == 1 and opponent_history[-5:] == ['R', 'R', 'R', 'R', 'R']):
+        opponent_list[3] = True
+    
+    if(opponent_list[3]):  
+        if(len(opponent_history) == 1000):
+            opponent_list = [False, False, False, False]
+            opponent_history.clear()
+            
+        last_ten = my_history[-10:]
+        most_frequent = max(set(last_ten), key = last_ten.count)
+        prev_play = ideal_response[most_frequent]
+        return prev_play
+    
+    prev_play = init_play
+    return prev_play
