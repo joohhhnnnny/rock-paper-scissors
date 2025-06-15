@@ -1,4 +1,4 @@
 # rock-paper-scissors
-# free code camp
 
-Final solution is located @rps.py
+Final solution is located @rps.py - - -
+challenge from free code camp
